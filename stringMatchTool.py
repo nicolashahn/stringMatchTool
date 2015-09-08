@@ -147,19 +147,23 @@ def getTextFromPostID(post_id, session):
 	pquery = session.query(Post).\
 				filter(Post.post_id.like(post_id)).\
 				filter(Post.dataset_id.like(dataset_id))
-	text_id = pquery[0].text_id
-	# now get text from text_id
-	tquery = session.query(Text).\
+	if len(pquery)>0:
+            text_id = pquery[0].text_id
+	    # now get text from text_id
+	    tquery = session.query(Text).\
 				filter(Text.text_id.like(text_id)).\
 				filter(Text.dataset_id.like(dataset_id))
-	return tquery[0].text
+	    if len(tquery)>0:    
+                return tquery[0].text
+        return ""
 
 # given post_id, return parent_post_id
 def getParentFromPostID(post_id, session):
 	pquery = session.query(Post).\
 				filter(Post.post_id.like(post_id)).\
 				filter(Post.dataset_id.like(dataset_id))
-	return pquery[0].parent_post_id
+	if len(pquery) > 0:
+            return pquery[0].parent_post_id
 
 # given list of match objects, writes to csv
 def writeMatchesToCSV(matches, csvfile):
