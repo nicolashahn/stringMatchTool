@@ -125,7 +125,7 @@ def getBatchMatches(post_id, session):
     pquery = session.query(Post,Text).\
                 filter(Post.dataset_id==dataset_id).\
                 filter(Post.text_id==Text.text_id).\
-                limit(batch_size-1).offset(post_id)
+                limit(batch_size).offset(post_id)
     matches = []
     for p,t in pquery.all():
         m = getMatchesFromText(p.discussion_id, p.post_id, t.text, p.parent_post_id)
