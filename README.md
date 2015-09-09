@@ -18,3 +18,5 @@ discussion id, post id, "string match", "post's text", parent post id
 Should be easily extensible for other phrases/positions in text.
 
 Requires sqlalchemy, oursql.
+
+createTest.sql and nukeTest.sql respectively insert and delete a small test dataset.
