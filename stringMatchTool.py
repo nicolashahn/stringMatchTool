@@ -121,6 +121,7 @@ match_functions={
 # General DB-querying functions #
 #################################
 
+# query the db once per batch, then get matches
 def getBatchMatches(post_id, session):
     pquery = session.query(Post,Text).\
                 filter(Post.dataset_id==dataset_id).\
@@ -132,8 +133,12 @@ def getBatchMatches(post_id, session):
         matches = matches + m
     return matches
 
+# check for each of the strings in the string_dict
+# if exists, create a Match object
 def getMatchesFromText(disc_id, post_id, text, parent_id):
+    # format for matching functions, csv output
     text = text.lower().replace('\n',' ')
+    text = text.replace('"',"'")
     str_matches = []
     for s in strings_dict:
         if s[0] in match_functions:
@@ -190,6 +195,7 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
             print('Writing matches from post',post_id,'to',post_id+batch_size-1)
             sys.stdout.flush()
             writeMatchesToCSV(matches, csvfile)
+
     session.close()
 
 if __name__ == "__main__":
