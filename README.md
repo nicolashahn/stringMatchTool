@@ -12,7 +12,7 @@ Checks through all the posts in the dataset for certain strings:
 
 and outputs a CSV file with the following on each line:
 ```
-post id,"regex match","post's text",parent post id 
+discussion id, post id, "string match", "post's text", parent post id 
 ```
 
 Should be easily extensible for other phrases/positions in text.

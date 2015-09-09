@@ -6,6 +6,9 @@
 #   checks each for the strings given
 #   outputs a CSV which has on each line:
 #       post id,"regex match","post's text",parent post id 
+# NOTE:
+#   modified for dataset 3: added discussion_id as first field
+#   posts are only unique to the discussion
 
 import sqlalchemy as s
 import oursql
@@ -22,6 +25,8 @@ import re
 
 # set these in main()
 dataset_id = None
+# how many posts,texts to get at once
+batch_size = 10000
 
 ###############
 # Match Class #
@@ -29,9 +34,10 @@ dataset_id = None
 
 # each match object, to be written to database
 class Match:
-    def __init__(self, post_id, string_match, text, parent_id):
+    def __init__(self, disc_id, post_id, str_match, text, parent_id):
+        self.disc_id = disc_id
         self.post_id = post_id
-        self.string_match = string_match
+        self.str_match = str_match
         self.text = text
         self.parent_id = parent_id
 
@@ -113,67 +119,86 @@ match_functions={
 # General DB-querying functions #
 #################################
 
-# get text, check against strings dict, if there's matches:
-# create list of tuples
-def getMatchesFromPostID(post_id, session):
-    post_text = getTextFromPostID(post_id, session)
-    l_text = post_text.lower()
-    print(l_text)
-    str_matches = []
-    for s in strings_dict:
-        if s[0] in match_functions:
-            str_match = match_functions[s[0]](l_text, strings_dict[s])
-        # if s[0] == "A":
-        #   str_match = startOfPostMatch(l_text,strings[s])
-        # if s[0] == "B":
-        #   str_match = firstSentenceMatch(l_text,strings[s])
-        # if s[0] == "C":
-        #   str_match = anywhereMatch(l_text,strings[s])
-            if str_match != None:
-                str_matches.append(str_match)
-    if len(str_matches) == 0:
-        return []
-    else:
-        parent_id = getParentFromPostID(post_id,session)
-        new_matches = []
-        for str_match in str_matches:
-            new_matches.append(Match(post_id, str_match, post_text, parent_id))
-        return new_matches
+# # get text, check against strings dict, if there's matches:
+# # create list of tuples
+# def getMatchesFromPostID(post_id, session):
+#     post_text = getTextFromPostID(post_id, session)
+#     post_text = post_text.lower().replace('\n',' ')
+#     str_matches = []
+#     for s in strings_dict:
+#         if s[0] in match_functions:
+#             str_match = match_functions[s[0]](l_text, strings_dict[s])
+#             if str_match != None:
+#                 str_matches.append(str_match)
+#     if len(str_matches) == 0:
+#         return []
+#     else:
+#         parent_id = getParentFromPostID(post_id,session)
+#         new_matches = []
+#         for str_match in str_matches:
+#             new_matches.append(Match(post_id, str_match, post_text, parent_id))
+#         return new_matches
         
 
-# given a post_id, returns body of text of that post
-def getTextFromPostID(post_id, session):
-    # query posts for text_id
-    pquery = session.query(Post).\
-            filter(Post.post_id.like(post_id)).\
-            filter(Post.dataset_id.like(dataset_id))
-    if pquery.count() > 0:
-        text_id = pquery[0].text_id
-        # now get text from text_id
-        tquery = session.query(Text).\
-            filter(Text.text_id.like(text_id)).\
-            filter(Text.dataset_id.like(dataset_id))
-        if tquery.count() > 0:    
-            return tquery[0].text
-    return ""
+# # given a post_id, returns body of text of that post
+# def getTextFromPostID(post_id, session):
+#     # query posts for text_id
+#     pquery = session.query(Post).\
+#             filter(Post.post_id.like(post_id)).\
+#             filter(Post.dataset_id.like(dataset_id))
+#     if pquery.count() > 0:
+#         text_id = pquery[0].text_id
+#         # now get text from text_id
+#         tquery = session.query(Text).\
+#             filter(Text.text_id.like(text_id)).\
+#             filter(Text.dataset_id.like(dataset_id))
+#         if tquery.count() > 0:    
+#             return tquery[0].text
+#     return ""
 
-# given post_id, return parent_post_id
-def getParentFromPostID(post_id, session):
-    pquery = session.query(Post).\
-                filter(Post.post_id.like(post_id)).\
-                filter(Post.dataset_id.like(dataset_id))
-    if pquery.count() > 0:
-        return pquery[0].parent_post_id
-    return None
+# # given post_id, return parent_post_id
+# def getParentFromPostID(post_id, session):
+#     pquery = session.query(Post).\
+#                 filter(Post.post_id.like(post_id)).\
+#                 filter(Post.dataset_id.like(dataset_id))
+#     if pquery.count() > 0:
+#         return pquery[0].parent_post_id
+#     return None
 
 # given list of match objects, writes to csv
 def writeMatchesToCSV(matches, csvfile):
-    with open(csvfile,'a') as f:
+    with open(csvfile,'a', encoding='utf-8') as f:
         for m in matches:
+            f.write(str(m.disc_id)+', ')
             f.write(str(m.post_id)+', "')
-            f.write(m.string_match+'", "')
+            f.write(m.str_match+'", "')
             f.write(m.text+'", ')
             f.write(str(m.parent_id)+"\n")
+
+def getBatchMatches(post_id, session):
+    pquery = session.query(Post,Text).\
+                filter(Post.dataset_id==dataset_id).\
+                filter(Post.text_id==Text.text_id).\
+                limit(batch_size).offset(post_id)
+    matches = []
+    for p,t in pquery.all():
+        m = getMatchesFromText(p.discussion_id, p.post_id, t.text, p.parent_post_id)
+        matches = matches + m
+    return matches
+
+def getMatchesFromText(disc_id, post_id, text, parent_id):
+    text = text.lower().replace('\n',' ')
+    str_matches = []
+    for s in strings_dict:
+        if s[0] in match_functions:
+            str_match = match_functions[s[0]](text, strings_dict[s])
+            if str_match != None:
+                str_matches.append(str_match)
+    matches = []
+    for str_match in str_matches:
+        m = Match(disc_id, post_id, str_match, text, parent_id)
+        matches.append(m)
+    return matches
 
 ##################
 # Main Execution #
@@ -190,8 +215,9 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     generateTableClasses(eng)
     global dataset_id
     dataset_id = int(dataset)
-    csvfile = "matches_dataset_"+dataset+".csv"
     matches = []
+    # what file to write to
+    csvfile = "matches_dataset_"+dataset+".csv"
 
     # query db for # of posts
     totalPosts = None
@@ -203,20 +229,26 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
         sys.stdout.flush()
 
     # generate the match objs by iterating through post_ids
+    # for post_id in range(totalPosts):
+    #     post_id += 1
+    #     # if post_id%1000 == 0:
+    #     print("at post",post_id)
+    #     sys.stdout.flush()
+    #     newMatches = getMatchesFromPostID(post_id, session)
+    #     for nm in newMatches:
+    #         matches.append(nm)
+    #     if len(matches) >= 1000:
+    #         print('Writing matches for up to post_id',post_id)
+    #         sys.stdout.flush()
+    #         writeMatchesToCSV(matches, csvfile)
+    #         matches = []
+    # writeMatchesToCSV(matches, csvfile)
+    # session.close()
+
     for post_id in range(totalPosts):
-        post_id += 1
-        # if post_id%1000 == 0:
-        print("at post",post_id)
-        sys.stdout.flush()
-        newMatches = getMatchesFromPostID(post_id, session)
-        for nm in newMatches:
-            matches.append(nm)
-        if len(matches) >= 1000:
-            print('Writing matches for up to post_id',post_id)
-            sys.stdout.flush()
+        if post_id%batch_size == 0:
+            matches = getBatchMatches(post_id, session)
             writeMatchesToCSV(matches, csvfile)
-            matches = []
-    writeMatchesToCSV(matches, csvfile)
     session.close()
 
 if __name__ == "__main__":
