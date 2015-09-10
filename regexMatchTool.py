@@ -72,77 +72,66 @@ def generateTableClasses(eng):
     Text = ABase.classes.texts
 
 ###################
-# String matching #
+# Regex matching  #
 ###################
 
-# match_string appears as the first phrase/word in text
-def startOfPostMatch(text, match_string):
-    match_str_len = len(match_string)
-    if len(text) >= match_str_len:
-        if text[:match_str_len] == match_string:
-            return match_string
+# match_regex appears as the first phrase/word in text
+def startOfPostMatch(text, match_regex):
+    start_match = r"^"+match_regex
+    matches = re.findall(start_match, text)
+    if len(matches)>0:
+        return matches[0]
     return None
     
-# match_string appears in the first sentence
-def firstSentenceMatch(text, match_string):
+# match_regex appears in the first sentence
+# minus the punctuation - use startOfPostMatch if you want that
+def firstSentenceMatch(text, match_regex):
     modtext = text.replace('?','.')
     modtext = modtext.replace('!','.')
     first_sentence = modtext.split('.')[0]
-    if match_string in first_sentence:
-        return match_string
+    matches = re.findall(match_regex, first_sentence)
+    if len(matches)>0:
+        return matches[0]
     return None
 
-# match_string appears anywhere in the text
-def anywhereMatch(text, match_string):
-    if match_string in text:
-        return match_string
-    else:
-        return None
+# match_regex appears anywhere in the text
+def anywhereMatch(text, match_regex):
+    matches = re.findall(match_regex, text)
+    if len(matches)>0:
+        return matches[0]
+    return None
 
-# match_string appears in the first X words of the text
-# def firstXWordsMatch(text, numWords, match_string):
+# match_regex appears in the first X words of the text
+# def firstXWordsMatch(text, numWords, match_regex):
 #     splitText = text.split(' ')
 #     firstXWords = ' '.join(splitText[:numWords])
-#     if match_string in firstXWords:
-#         return match_string
+#     if match_regex in firstXWords:
+#         return match_regex
 #     else:
 #         return None
 
-# make sure use case-insensitive matching method
-# upper case letters in front of keys indicate where to look for them in the post
-# lowercase both these strings and post text
-strings_dict = {
+# first char = position in text to look
+# rest of key = name of regex phrase
+# value = regex pattern
+regex_dict = {
     # A: only at start of post, as the first word/phrase
     # B: in the first sentence
     # C: can occur anywhere
 
-    'A really':            "really",
-    'A wow':               "wow",
-    'A interesting.':      "interesting.",
-    'A interestingly,':    "interestingly,",
+    'A really?':           r"(really\?)",
+    'A wow':               r"(wow)",
+    'A interesting.':      r"(interesting\.)",
+    'A interestingly,':    r"(interestingly,)",
     
-    'B oh really':         "oh really",
-    'B i love':            "i love",
+    'B oh really':         r"(oh really)",
+    'B i love':            r"(i love)",
     
-    'C i guess':           "i guess",
-    "C you're kidding":    "you're kidding",
-    "C you're joking":     "you're joking",
-    "C fantastic":         "fantastic",
+    'C i guess':           r"(i guess)",
+    "C you're kidding":    r"(you're kidding)",
+    "C you're joking":     r"(you're joking)",
+    "C fantastic":         r"(fantastic)",
 }
 
-# to add:
-
-# make it work with regex
-
-# A interesting.
-# A interestingly,
-# D i love
-# C by any chance
-# A gee
-# fantastic
-# not surprised
-# you're kidding
-# you're joking
 
 # keep track of indices to the functions used to find their match string
 match_functions={
@@ -178,15 +167,15 @@ def getBatchMatches(post_id, session):
 # if exists, create a Match object
 def getMatchesFromText(disc_id, post_id, text, parent_id):
     newtext = cleanText(text)
-    str_matches = []
-    for s in strings_dict:
-        if s[0] in match_functions:
-            str_match = match_functions[s[0]](newtext, strings_dict[s])
-            if str_match != None:
-                str_matches.append(str_match)
+    r_matches = []
+    for r in regex_dict:
+        if r[0] in match_functions:
+            r_match = match_functions[r[0]](newtext, regex_dict[r])
+            if r_match != None:
+                r_matches.append(r_match)
     matches = []
-    for str_match in str_matches:
-        m = Match(disc_id, post_id, str_match, newtext, parent_id)
+    for r_match in r_matches:
+        m = Match(disc_id, post_id, r_match, newtext, parent_id)
         matches.append(m)
     return matches
 
@@ -244,7 +233,7 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     dataset_id = int(dataset)
     matches = []
     # what file to write to
-    csvfile = "matches_dataset_"+dataset+".csv"
+    csvfile = "matches_regex_dataset_"+dataset+".csv"
     with open(csvfile,'w',encoding='utf-8') as f:
         f.write('"discussion_id","post_id","string matched","post text","parent_post_id"\n')
 
