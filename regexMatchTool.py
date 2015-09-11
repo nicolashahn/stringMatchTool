@@ -233,6 +233,23 @@ def addParentText(matches, session):
             m.parent_text = cleanText(ptext)
     return matches
 
+# some posts are duplicated, IE posts with different post_id and discussion_id
+# have the same exact text
+# let's remove the ones that don't have parent texts,
+# if both do or don't, just pick one to remove
+def removeDuplicateTexts(matches):
+    matches = sorted(matches, key=lambda k:k.text)
+    origLen = len(matches)
+    for i in range(origLen-1):
+        if i < len(matches)-1:
+            while matches[i].text == matches[i+1].text:
+                if matches[i].parent_id == None:
+                    del matches[i]
+                else:
+                    del matches[i+1]
+    return matches
+
+
 # given list of match objects, writes to csv
 def writeMatchesToCSV(matches, csvfile):
     with open(csvfile,'a', encoding='utf-8') as f:
@@ -279,6 +296,7 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     for post_id in range(totalPosts):
         if post_id%batch_size == 0:
             matches = getBatchMatches(post_id, session)
+            matches = removeDuplicateTexts(matches)
             matches = addParentText(matches, session)
             print('Writing matches from post',post_id+1,'to',post_id+batch_size)
             sys.stdout.flush()
