@@ -26,7 +26,7 @@ import re
 # set this in main()
 dataset_id = None
 # how many posts to get at once
-batch_size = 10000
+batch_size = 50000
 
 ###############
 # Match Class #
@@ -34,14 +34,19 @@ batch_size = 10000
 
 # each match object, to be written to database
 class Match:
-    def __init__(self, disc_id, post_id, str_match, text, parent_id):
+    def __init__(self, 
+        disc_id=None, 
+        post_id=None, 
+        str_match=None, 
+        text=None, 
+        parent_id=None,
+        parent_text=None):
         self.disc_id = disc_id
         self.post_id = post_id
         self.str_match = str_match
         self.text = text
         self.parent_id = parent_id
-        # this gets added later, so don't have it in constructor
-        self.parent_text = None
+        self.parent_text = parent_text
 
 #############################
 # Database connection/setup #
@@ -154,14 +159,33 @@ def cleanText(text):
 # query the db once per batch, then get matches
 def getBatchMatches(post_id, session):
     pquery = session.query(Post,Text).\
-                filter(Post.dataset_id==dataset_id).\
-                filter(Post.text_id==Text.text_id).\
+                filter((Post.dataset_id==dataset_id) &
+                        (Text.dataset_id==dataset_id) & 
+                        (Post.text_id==Text.text_id)).\
                 limit(batch_size).offset(post_id)
     matches = []
     for p,t in pquery.all():
-        m = getMatchesFromText(p.discussion_id, p.post_id, t.text, p.parent_post_id)
-        matches = matches + m
+        if t.text:
+            if len(cleanText(t.text).split(' ')) in range(10,151):
+                m = getMatchesFromText(
+                        p.discussion_id, 
+                        p.post_id, 
+                        t.text, 
+                        p.parent_post_id
+                        )
+                matches += m
     return matches
+
+# def getBatchMatches(post_id, session):
+#     pquery = session.query(Post).\
+#                 filter(Post.dataset_id==dataset_id).\
+#                 limit(batch_size).offset(post_id)
+#     matches = []
+#     for p in pquery.all():
+#         m = Match(disc_id=p.discussion_id, post_id=p.post_id, text_id=p.text_id)
+#         matches.append(m)
+#     return matches
+
 
 # check for each of the strings in the string_dict
 # if exists, create a Match object
@@ -179,29 +203,35 @@ def getMatchesFromText(disc_id, post_id, text, parent_id):
         matches.append(m)
     return matches
 
-# TODO 9/10/2015: change query to get parent text, is currently broken
 # get the parent's text from the parent_id in match objects
 def addParentText(matches, session):
-    parent_id_disc_id = {}
-    for m in matches:
-        if m.parent_id is not None:
-            parent_id_disc_id[m.parent_id] = m.disc_id
+    disc_ids = set([m.disc_id for m in matches if m.parent_id is not None])
+    # get way more posts than we need, whittle down
     pquery = session.query(Post).\
                 filter(Post.dataset_id==dataset_id).\
-                filter(
-                    Post.post_id.in_(list(parent_id_disc_id)) and 
-                    parent_id_disc_id[Post.post_id]==Post.discussion_id)
-    print(len(pquery.all()))
-    # dict: parent's post_id to its text
-    # post_id_text = []
-    # for p,t in pquery.all():
-    #     print(p.post_)
-    #     text = cleanText(t.text)
-    #     post_id_text[p.post_id] = text
-    # for m in matches:
-    #     if m.parent_id is not None and m.parent_id in post_id_text:
-    #         m.parent_text = post_id_text[m.parent_id]
-    # return matches
+                filter(Post.discussion_id.in_(disc_ids))
+    # now have a list of all posts from all discussions that might be relevant
+    pd_text_ids = {}
+    for p in pquery.all():
+        pd_text_ids[(p.post_id, p.discussion_id)] = p.text_id
+    # fish out relevant text_ids
+    relevant_text_ids = []
+    for m in matches:
+        if (m.parent_id, m.disc_id) in pd_text_ids:
+            relevant_text_ids.append(pd_text_ids[(m.parent_id,m.disc_id)])
+    # now actually get the texts
+    tquery = session.query(Text).\
+                filter(Text.dataset_id==dataset_id).\
+                filter(Text.text_id.in_(relevant_text_ids))
+    t_id_texts = {}
+    for t in tquery.all():
+        t_id_texts[t.text_id] = t.text
+    # link them up with their respective Match objects
+    for m in matches:
+        if (m.parent_id, m.disc_id) in pd_text_ids:
+            ptext = t_id_texts[pd_text_ids[(m.parent_id, m.disc_id)]]
+            m.parent_text = cleanText(ptext)
+    return matches
 
 # given list of match objects, writes to csv
 def writeMatchesToCSV(matches, csvfile):
@@ -211,8 +241,8 @@ def writeMatchesToCSV(matches, csvfile):
             f.write('"'+str(m.post_id)+'",')
             f.write('"'+m.str_match+'",')
             f.write('"'+m.text+'",')
-            f.write('"'+str(m.parent_id)+'"')
-            # f.write('"'+str(m.parent_text)+'"')
+            f.write('"'+str(m.parent_id)+'",')
+            f.write('"'+str(m.parent_text)+'"')
             f.write('\n')
     
 
@@ -249,8 +279,8 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     for post_id in range(totalPosts):
         if post_id%batch_size == 0:
             matches = getBatchMatches(post_id, session)
-            # matches = addParentText(matches, session)
-            print('Writing matches from post',post_id,'to',post_id+batch_size-1)
+            matches = addParentText(matches, session)
+            print('Writing matches from post',post_id+1,'to',post_id+batch_size)
             sys.stdout.flush()
             writeMatchesToCSV(matches, csvfile)
 
