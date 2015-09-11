@@ -9,10 +9,11 @@ Checks through all the posts in the dataset for certain strings:
 - "I guess" anywhere in a post
 - "Oh really" near the beginning of a post, probably at the beginning.
 - "Really, well" at the beginning of a post.
+- etc.
 
 and outputs a CSV file with the following on each line:
 ```
-discussion id, post id, "string match", "post's text", parent post id 
+discussion id, post id, "string match", "post's text", parent post id, "parent text"
 ```
 
 Should be easily extensible for other phrases/positions in text.
