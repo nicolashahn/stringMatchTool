@@ -18,6 +18,8 @@ discussion id, post id, "string match", "post's text", parent post id, "parent t
 
 Should be easily extensible for other phrases/positions in text.
 
+`regexMatchTool.py` is the used the same, but takes regex patterns instead of strings. To add or remove strings/regex, change the dictionaries `string_dict` or `regex` dict. The A,B,C at the start of the key indicates where to look for the string/regex in the body of the text.
+
 Requires sqlalchemy, oursql.
 
 createTest.sql and nukeTest.sql respectively insert and delete a small test dataset.
