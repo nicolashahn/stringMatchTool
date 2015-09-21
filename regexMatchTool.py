@@ -18,6 +18,7 @@ from sqlalchemy.dialects import mysql
 from sqlalchemy import func
 import sys
 import re
+import os
 
 ###########
 # Globals #
@@ -30,9 +31,9 @@ batch_size = 50000
 
 # files with regex patterns on each line to look for
 # by default, will search entire text for each pattern
-regex_files = [
-    "LIWC_friend_enum.txt",
-]
+# regex_files = [
+#     "LIWC_friend_enum.txt",
+# ]
 
 ###############
 # Match Class #
@@ -151,6 +152,13 @@ match_functions={
     'C':    anywhereMatch,
     # 'D':    firstXWordsMatch
 }
+
+# find files with regex patterns to use
+def findRegexFiles(dir):
+    regex_files = []
+    for file in os.listdir(dir):
+        regex_files.append(file)
+    return regex_files
 
 # loads regex patterns from LIWC regex files
 def addRegexFromFile(filename):
@@ -296,6 +304,8 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     dataset_id = int(dataset)
     matches = []
     
+    regex_files = findRegexFiles('/LIWC_lexicon')
+
     for f in regex_files:
         addRegexFromFile(f)
     print (regex_dict)
