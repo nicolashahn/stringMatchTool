@@ -28,6 +28,12 @@ dataset_id = None
 # how many posts to get at once
 batch_size = 50000
 
+# files with regex patterns on each line to look for
+# by default, will search entire text for each pattern
+regex_files = [
+    "LIWC_friends.txt",
+]
+
 ###############
 # Match Class #
 ###############
@@ -115,7 +121,7 @@ def anywhereMatch(text, match_regex):
 #     else:
 #         return None
 
-# first char = position in text to look
+# first char = position in text to look (see match_functions below)
 # rest of key = name of regex phrase
 # value = regex pattern
 regex_dict = {
@@ -145,6 +151,12 @@ match_functions={
     'C':    anywhereMatch,
     # 'D':    firstXWordsMatch
 }
+
+# loads regex patterns from LIWC regex files
+def addRegexFromFile(filename):
+    with open(filename,'r') as f:
+        for line in f:
+            regex_dict["C "+line] = "("+line+")"
 
 #################################
 # General DB-querying functions #
@@ -279,11 +291,16 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     global dataset_id
     dataset_id = int(dataset)
     matches = []
+    
+    for f in regex_files:
+        getRegexFromFile(f)
+    print (regex_dict)
+    
     # what file to write to
     csvfile = "matches_regex_dataset_"+dataset+".csv"
     with open(csvfile,'w',encoding='utf-8') as f:
         f.write('"discussion_id","post_id","string matched","post text","parent_post_id"\n')
-
+    
     # query db for # of posts
     totalPosts = None
     for ct in session.query(
