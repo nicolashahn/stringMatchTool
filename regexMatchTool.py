@@ -31,7 +31,7 @@ batch_size = 50000
 # files with regex patterns on each line to look for
 # by default, will search entire text for each pattern
 regex_files = [
-    "LIWC_friends.txt",
+    "LIWC_friend_enum.txt",
 ]
 
 ###############
@@ -156,7 +156,9 @@ match_functions={
 def addRegexFromFile(filename):
     with open(filename,'r') as f:
         for line in f:
-            regex_dict["C "+line] = "("+line+")"
+            r = line.rstrip()
+            r.replace("\n","")
+            regex_dict["C "+r] = "("+r+")"
 
 #################################
 # General DB-querying functions #
@@ -253,12 +255,14 @@ def removeDuplicateTexts(matches):
     matches = sorted(matches, key=lambda k:k.text)
     origLen = len(matches)
     for i in range(origLen-1):
-        if i < len(matches)-1:
-            while matches[i].text == matches[i+1].text:
+        while i < len(matches)-1:
+            if matches[i].text == matches[i+1].text:
                 if matches[i].parent_id == None:
                     del matches[i]
                 else:
                     del matches[i+1]
+            else:
+                break
     return matches
 
 
@@ -293,7 +297,7 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     matches = []
     
     for f in regex_files:
-        getRegexFromFile(f)
+        addRegexFromFile(f)
     print (regex_dict)
     
     # what file to write to
