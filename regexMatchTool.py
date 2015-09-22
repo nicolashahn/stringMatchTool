@@ -27,7 +27,7 @@ import os
 # set this in main()
 dataset_id = None
 # how many posts to get at once
-batch_size = 50000
+batch_size = 100
 
 # files with regex patterns on each line to look for
 # by default, will search entire text for each pattern
@@ -157,7 +157,7 @@ match_functions={
 def findRegexFiles(dir):
     regex_files = []
     for file in os.listdir(dir):
-        regex_files.append(file)
+        regex_files.append(dir+'/'+file)
     return regex_files
 
 # loads regex patterns from LIWC regex files
@@ -165,8 +165,8 @@ def addRegexFromFile(filename):
     with open(filename,'r') as f:
         for line in f:
             r = line.rstrip()
-            r.replace("\n","")
-            regex_dict["C "+r] = "("+r+")"
+            r = r.replace("*",".*")
+            regex_dict["C "+r] = '\W('+r+')\W' 
 
 #################################
 # General DB-querying functions #
@@ -174,9 +174,10 @@ def addRegexFromFile(filename):
 
 # for output to CSV and string matching
 def cleanText(text):
-    newtext = text.lower().replace('\n',' ')
-    newtext = newtext.replace('"',"'")
-    return newtext
+    if text != None:
+        newtext = text.lower().replace('\n',' ')
+        newtext = newtext.replace('"',"'")
+        return newtext
 
 # query the db once per batch, then get matches
 def getBatchMatches(post_id, session):
@@ -304,7 +305,7 @@ def main(user=sys.argv[1],pword=sys.argv[2],db=sys.argv[3],dataset=sys.argv[4]):
     dataset_id = int(dataset)
     matches = []
     
-    regex_files = findRegexFiles('/LIWC_lexicon')
+    regex_files = findRegexFiles('LIWC_lexicons')
 
     for f in regex_files:
         addRegexFromFile(f)
