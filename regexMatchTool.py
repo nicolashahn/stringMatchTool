@@ -114,13 +114,13 @@ def anywhereMatch(text, match_regex):
     return None
 
 # match_regex appears in the first X words of the text
-# def firstXWordsMatch(text, numWords, match_regex):
-#     splitText = text.split(' ')
-#     firstXWords = ' '.join(splitText[:numWords])
-#     if match_regex in firstXWords:
-#         return match_regex
-#     else:
-#         return None
+def firstXWordsMatch(text, match_regex, numWords=10):
+    splitText = text.split(' ')
+    firstXWords = ' '.join(splitText[:numWords])
+    if match_regex in firstXWords:
+        return match_regex
+    else:
+        return None
 
 # first char = position in text to look (see match_functions below)
 # rest of key = name of regex phrase
@@ -129,6 +129,7 @@ regex_dict = {
     # A: only at start of post, as the first word/phrase
     # B: in the first sentence
     # C: can occur anywhere
+    # D: occurs in the first X words of the text (default 10)
 
     'A really?':           r"(really\?)",
     'A wow':               r"(wow)",
@@ -142,6 +143,8 @@ regex_dict = {
     "C you're kidding":    r"(you're kidding)",
     "C you're joking":     r"(you're joking)",
     "C fantastic":         r"(fantastic)",
+
+    "D um...":             r"(um+\.+)",
 }
 
 
@@ -150,7 +153,7 @@ match_functions={
     'A':    startOfPostMatch,
     'B':    firstSentenceMatch,
     'C':    anywhereMatch,
-    # 'D':    firstXWordsMatch
+    'D':    firstXWordsMatch,
 }
 
 # find files with regex patterns to use
